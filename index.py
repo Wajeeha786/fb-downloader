@@ -1,5 +1,6 @@
 from flask import Flask, render_template_string, request
 import yt_dlp
+import os
 
 app = Flask(__name__)
 
@@ -70,12 +71,16 @@ def home():
 def download():
     url = request.form.get('url')
     try:
-        # یہ سیٹنگز اب تمام پلیٹ فارمز کے لیے کام کریں گی
+        # اپڈیٹ شدہ سیٹنگز جو یوٹیوب اور انسٹاگرام کو سپورٹ کریں گی
         ydl_opts = {
             'format': 'best',
             'quiet': True,
             'no_warnings': True,
             'noplaylist': True,
+            'nocheckcertificate': True,
+            'geo_bypass': True,
+            'user_agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36',
+            'referer': 'https://www.google.com/',
         }
         with yt_dlp.YoutubeDL(ydl_opts) as ydl:
             info = ydl.extract_info(url, download=False)
@@ -96,8 +101,10 @@ def download():
             </body>
         '''
     except Exception as e:
-        return f'<body style="background:#0f172a; color:white; text-align:center; padding-top:100px;"><h3>Unsupported or Private Link</h3><a href="/" style="color:#38bdf8;">Try Again</a></body>'
+        return f'<body style="background:#0f172a; color:white; text-align:center; padding-top:100px;"><h3>Unsupported or Private Link</h3><p style="color:#475569; font-size:12px;">Error: {str(e)[:50]}...</p><a href="/" style="color:#38bdf8;">Try Again</a></body>'
 
 if __name__ == '__main__':
-    app.run()
-    
+    # ورسل کے لیے پورٹ سیٹ کرنا
+    port = int(os.environ.get("PORT", 5000))
+    app.run(host='0.0.0.0', port=port)
+            
