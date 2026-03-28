@@ -51,7 +51,7 @@ HTML_TEMPLATE = """
 </head>
 <body>
     <div class="card">
-        <h2>Multi-Downloader</h2>
+        <h2>Facebook-Downloader</h2>
         <div class="sub">FB, Insta, TikTok, YT, X & More</div>
         <form method="POST" action="/download">
             <input type="text" name="url" placeholder="Paste link here..." required>
