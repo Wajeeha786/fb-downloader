@@ -1,10 +1,10 @@
-from flask import Flask, render_template_string, request
+from flask import Flask, render_template_string, request, jsonify
 import yt_dlp
 import os
 
 app = Flask(__name__)
 
-# جدید آل ان ون ڈارک ڈیزائن
+# جدید ترین ڈیزائن جو اسی پیج پر رزلٹ دکھائے گا
 HTML_TEMPLATE = """
 <!DOCTYPE html>
 <html lang="en">
@@ -17,7 +17,7 @@ HTML_TEMPLATE = """
             background: radial-gradient(circle, #1e293b 0%, #0f172a 100%); 
             color: #f8fafc; font-family: 'Segoe UI', sans-serif; 
             display: flex; justify-content: center; align-items: center; 
-            height: 100vh; margin: 0;
+            min-height: 100vh; margin: 0;
         }
         .card { 
             background: rgba(30, 41, 59, 0.7); 
@@ -45,20 +45,78 @@ HTML_TEMPLATE = """
             font-weight: 800; cursor: pointer; font-size: 15px;
             text-transform: uppercase; transition: 0.3s;
         }
-        .btn:hover { transform: scale(1.02); box-shadow: 0 0 20px rgba(56, 189, 248, 0.4); }
-        .footer { margin-top: 25px; font-size: 10px; color: #475569; letter-spacing: 1px; }
+        .btn:disabled { background: #475569; cursor: not-allowed; }
+        #result { margin-top: 25px; display: none; }
+        .dl-btn {
+            display: inline-block; padding: 15px 30px; 
+            background: #10b981; color: white; 
+            text-decoration: none; border-radius: 12px; 
+            font-weight: bold; width: 80%;
+        }
+        .loader { color: #38bdf8; font-size: 14px; display: none; }
     </style>
 </head>
 <body>
     <div class="card">
-        <h2>Facebook-Downloader</h2>
-        <div class="sub">FB, Insta, TikTok, YT, X & More</div>
-        <form method="POST" action="/download">
-            <input type="text" name="url" placeholder="Paste link here..." required>
-            <button type="submit" class="btn">Download Now</button>
-        </form>
+        <h2>Downloader Pro</h2>
+        <div class="sub">Facebook, Insta, TikTok, YT & More</div>
+        
+        <input type="text" id="videoUrl" placeholder="Paste link here..." required>
+        <button onclick="getDownloadLink()" id="mainBtn" class="btn">Get Video</button>
+        
+        <div id="loading" class="loader">🔍 Analyzing link, please wait...</div>
+
+        <div id="result">
+            <p id="videoTitle" style="font-size: 12px; color: #94a3b8;"></p>
+            <a href="#" id="finalDownload" class="dl-btn">📥 DOWNLOAD NOW</a>
+        </div>
+
         <div class="footer">POWERED BY EXTREMEWRITES AI</div>
     </div>
+
+    <script>
+        async function getDownloadLink() {
+            const urlInput = document.getElementById('videoUrl').value;
+            const btn = document.getElementById('mainBtn');
+            const loader = document.getElementById('loading');
+            const resultDiv = document.getElementById('result');
+
+            if(!urlInput) return alert("Please paste a link!");
+
+            btn.disabled = true;
+            btn.innerText = "Processing...";
+            loader.style.display = "block";
+            resultDiv.style.display = "none";
+
+            try {
+                const response = await fetch('/api/get_info', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({url: urlInput})
+                });
+                const data = await response.json();
+
+                if(data.success) {
+                    document.getElementById('videoTitle').innerText = data.title;
+                    const dlBtn = document.getElementById('finalDownload');
+                    dlBtn.href = data.download_url;
+                    
+                    // یہ جادو ہے: اس سے کالی اسکرین نہیں کھلے گی
+                    dlBtn.setAttribute('download', 'video.mp4');
+                    
+                    resultDiv.style.display = "block";
+                } else {
+                    alert("Error: " + data.error);
+                }
+            } catch (e) {
+                alert("Something went wrong!");
+            } finally {
+                btn.disabled = false;
+                btn.innerText = "Get Video";
+                loader.style.display = "none";
+            }
+        }
+    </script>
 </body>
 </html>
 """
@@ -67,44 +125,31 @@ HTML_TEMPLATE = """
 def home():
     return render_template_string(HTML_TEMPLATE)
 
-@app.route('/download', methods=['POST'])
-def download():
-    url = request.form.get('url')
+@app.route('/api/get_info', methods=['POST'])
+def get_info():
+    data = request.get_json()
+    url = data.get('url')
+    
+    ydl_opts = {
+        'format': 'best',
+        'quiet': True,
+        'no_warnings': True,
+        'noplaylist': True,
+        'nocheckcertificate': True,
+        'user_agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36',
+    }
+    
     try:
-        # اپڈیٹ شدہ سیٹنگز جو یوٹیوب اور انسٹاگرام کو سپورٹ کریں گی
-        ydl_opts = {
-            'format': 'best',
-            'quiet': True,
-            'no_warnings': True,
-            'noplaylist': True,
-            'nocheckcertificate': True,
-            'geo_bypass': True,
-            'user_agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36',
-            'referer': 'https://www.google.com/',
-        }
         with yt_dlp.YoutubeDL(ydl_opts) as ydl:
             info = ydl.extract_info(url, download=False)
-            video_url = info.get('url', None)
-            title = info.get('title', 'Social Media Video')
-            
-        return f'''
-            <body style="background:#0f172a; color:white; display:flex; justify-content:center; align-items:center; height:100vh; font-family:sans-serif;">
-                <div style="background:#1e293b; padding:40px; border-radius:30px; text-align:center; border:1px solid #334155; width:350px;">
-                    <h3 style="color:#38bdf8; margin-top:0;">Video Ready!</h3>
-                    <p style="color:#94a3b8; font-size:12px;">{title[:50]}...</p>
-                    <a href="{video_url}" target="_blank" style="display:inline-block; padding:18px 35px; background:#10b981; color:white; text-decoration:none; border-radius:15px; font-weight:bold; margin-top:10px; width:80%;">
-                        📥 DOWNLOAD
-                    </a>
-                    <br><br>
-                    <a href="/" style="color:#64748b; text-decoration:none; font-size:13px;">← Back to Downloader</a>
-                </div>
-            </body>
-        '''
+            return jsonify({
+                "success": True,
+                "title": info.get('title', 'Video Ready'),
+                "download_url": info.get('url')
+            })
     except Exception as e:
-        return f'<body style="background:#0f172a; color:white; text-align:center; padding-top:100px;"><h3>Unsupported or Private Link</h3><p style="color:#475569; font-size:12px;">Error: {str(e)[:50]}...</p><a href="/" style="color:#38bdf8;">Try Again</a></body>'
+        return jsonify({"success": False, "error": str(e)})
 
 if __name__ == '__main__':
-    # ورسل کے لیے پورٹ سیٹ کرنا
     port = int(os.environ.get("PORT", 5000))
     app.run(host='0.0.0.0', port=port)
-            
